@@ -1,0 +1,81 @@
+[project]
+name = "flat_profiler"
+dynamic = ["version"]
+authors = [
+    { name = "Daniel Wehr", email = "danwehr@gmail.com" },
+]
+description = "Python flat profiling tool."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = { paths = ["LICENSE"]}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities"
+]
+dependencies = [
+    "recompyle >= 0.2.1, < 0.3.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/DanWehr/flat_profiler"
+Documentation = "https://github.com/DanWehr/flat_profiler#readme"
+Issues = "https://github.com/DanWehr/flat_profiler/issues"
+Repository = "https://github.com/DanWehr/flat_profiler.git"
+
+[build-system]
+requires = ["hatchling>=1.19"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "flat_profiler/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["flat_profiler"]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pytest-mock",
+    "coverage[toml]>=6.5",
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11"]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args}"
+cov-report = "coverage report"
+cov = [
+    "coverage run --branch -m pytest {args}",
+    "cov-report"
+]
+pip-list = "pip list"
+
+[tool.coverage.paths]
+flat_profiler = ["flat_profiler", "*/flat_profiler/flat_profiler"]
+tests = ["tests", "*/flat_profiler/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+include = [
+    "*/flat_profiler/flat_profiler/*",
+]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "B", "I"]
+
+[tool.black]
+line-length = 120

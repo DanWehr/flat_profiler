@@ -1,0 +1,10 @@
+*__pycache__
+
+# Testing
+*.coverage
+
+# Ruff custom user configuration, should extend pyproject.toml if used.
+ruff.toml
+
+# Hatch build files
+dist
