@@ -1,20 +1,18 @@
 import functools
 import logging
 import time
-import warnings
 from collections import defaultdict
 from collections.abc import Callable, Generator
 from operator import itemgetter
-from pprint import pformat
 from typing import ParamSpec, Protocol, TypeAlias, TypeVar
 
-from recompyle.rewrite import rewrite_wrap_calls_func
+from recompyle.rewrite import CallExtras, rewrite_wrap_calls_func
 
 log = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 T = TypeVar("T")
-TimeDict: TypeAlias = dict[str, list[float]]
+TimeDict: TypeAlias = dict[tuple[tuple[int, ...], str, str], list[float]]
 
 
 class ProfilerCallback(Protocol):
@@ -34,8 +32,11 @@ class ProfilerCallback(Protocol):
 
 def _collect_sorted_times(times: TimeDict) -> Generator[str, None, None]:
     """Write call time summary to log."""
-    sum_times = ((func_str, sum(times)) for func_str, times in times.items())
-    return (f"{func_str}: {time:.3g}s" for func_str, time in sorted(sum_times, key=itemgetter(1), reverse=True))
+    sum_times = ((func_key, sum(times)) for func_key, times in times.items())
+    return (
+        f"{time:>10.3g}s, Ln{'-'.join(str(f) for f in func_key[0])}, {func_key[1]} | {func_key[2]}"
+        for func_key, time in sorted(sum_times, key=itemgetter(1), reverse=True)
+    )
 
 
 def default_below_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
@@ -46,9 +47,8 @@ def default_below_log(total: float, limit: float, times: TimeDict, func: Callabl
 
 def default_above_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
     """Log detailed call details for function that went over limit."""
-    log_str = f"{func.__qualname__} finished in {total:g}s, above limit of {limit:g}s"
-    log_str += f"\n{pformat(tuple(_collect_sorted_times(times)))}"
-    log.info(log_str)
+    detailstr = "\n" + "\n".join(_collect_sorted_times(times))
+    log.info(f"{func.__qualname__} finished in {total:g}s, above limit of {limit:g}s" + detailstr)
 
 
 def _find_name(call: Callable) -> str:
@@ -74,7 +74,7 @@ def flat_profile(
     time_limit: float,
     below_callback: ProfilerCallback | None = default_below_log,
     above_callback: ProfilerCallback | None = default_above_log,
-    ignore_builtins: bool = False,
+    ignore_builtins: bool = True,
     blacklist: set[str] | None = None,
     whitelist: set[str] | None = None,
     rewrite_details: dict | None = None,
@@ -97,7 +97,7 @@ def flat_profile(
         time_limit (float): Threshold that determines which callback run after decorated function runs.
         below_callback (ProfilerCallback | None): Called when execution time is under the time limit.
         above_callback (ProfilerCallback | None): Called when execution time is equal to or over the time limit.
-        ignore_builtins (bool): Whether to skip wrapping builtin calls.
+        ignore_builtins (bool): Whether to skip wrapping builtin calls. Must be False to use whitelist. Default True.
         blacklist (set[str] | None): Call names that should not be wrapped. String literal subscripts should not use
             quotes, e.g. use a name of `"a[b]"` to match code written as `a["b"]()`. Subscripts can be wildcards using an
             asterisk, like `"a[*]"` which would match all of `a[0]()` and `a[val]()` and `a["key"]()` etc.
@@ -111,7 +111,7 @@ def flat_profile(
     if below_callback is None and above_callback is None:
         raise ValueError("At least one of before_callback and above_callback must be non-None")
 
-    _call_times: defaultdict[str, list[float]] = defaultdict(list)
+    _call_times: defaultdict[tuple[tuple[int, ...], str, str], list[float]] = defaultdict(list)
     _call_names: dict[object, str] = {}
 
     def _get_name(call: Callable) -> str:
@@ -124,21 +124,20 @@ def flat_profile(
         _call_names[call] = _find_name(call)
         return _call_names[call]
 
-    def _record_call_time(__call: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    def _record_call_time(__call: Callable[P, T], __extras: CallExtras, *args: P.args, **kwargs: P.kwargs) -> T:
         """Wrapper to record execution time of inner calls."""
         start = time.perf_counter()
         try:
             return __call(*args, **kwargs)
         finally:
             end = time.perf_counter()
-            _call_times[_get_name(__call)].append(end - start)
+            _call_times[(__extras["ln_range"], __extras["source"], _get_name(__call))].append(end - start)
 
     def _measure_calls(func: Callable[P, T]) -> Callable[P, T]:
         """Decorator to measure total call time and inner call times."""
         _new_func = rewrite_wrap_calls_func(
             target_func=func,
             wrapper=_record_call_time,
-            decorator_name="flat_profile",
             ignore_builtins=ignore_builtins,
             blacklist=blacklist,
             whitelist=whitelist,

@@ -37,12 +37,12 @@ def faster_function() -> None:
     time.sleep(0.001)
 
 
-@flat_profile(time_limit=0.3)
+@flat_profile(time_limit=0.3, ignore_builtins=False)
 def example_function(count: int) -> str:
     """Function we are rewriting to time calls."""
     faster_function()
-    for _ in (int(v) for v in range(count)):
-        pass
+    for v in range(count):
+        int(v)
     return slow_function(val=123.45)
 
 
@@ -52,11 +52,11 @@ log.info(example_function(2))
 This will produce the following log output:
 
 ```text
-INFO:flat_profiler.flat_profiler:example_function finished in 0.5115s, above limit of 0.3s
-('slow_function: 0.508s',
- 'faster_function: 0.00294s',
- 'int: 2.4e-06s',
- 'range: 8e-07s')
+INFO:flat_profiler.flat_profiler:example_function finished in 0.507082s, above limit of 0.3s
+     0.505s, Ln27, slow_function(val=123.45) | slow_function
+   0.00188s, Ln24, faster_function() | faster_function
+   1.8e-06s, Ln26, int(v) | int
+   1.1e-06s, Ln25, range(count) | range
 INFO:__main__:other val: 123.45
 ```
 
@@ -78,19 +78,19 @@ See [ProfilerCallback](flat_profiler/flat_profiler.py) for details on the callba
 Performance has been measured using a [script](flat_profiler/performance.py) with multiple versions of a simple function with 10 calls, one of which is undecorated to serve as a baseline reference to contrast with the `flat_profile` decorated version. The numbers below are from running this script on an i7-6700K CPU, running Windows 10.
 
 ```text
-Running unwrapped function 100,000 times, repeat 100/100: average 0.7506689800004096 microseconds
-Running flat profiler w/ no callback 10,000 times, repeat 100/100: average 6.848101899999165 microseconds
-Running flat profiler w/ default below callback 10,000 times, repeat 100/100: average 8.47701797000118 microseconds
-Running flat profiler w/ default above callback 10,000 times, repeat 100/100: average 16.656903400000374 microseconds
+Running unwrapped function 10,000 times, repeat 100/100: average 0.7360477999827708 microseconds
+Running flat profiler w/ no callback 10,000 times, repeat 100/100: average 9.445820599998115 microseconds
+Running flat profiler w/ default below callback 10,000 times, repeat 100/100: average 11.368812500022614 microseconds
+Running flat profiler w/ default above callback 10,000 times, repeat 100/100: average 28.206683200009138 microseconds
 
-Flat profiler call cost is 0.6097432919998755 microseconds per wrapped call
-Flat profiler default below callback costs 1.628916070002015 microseconds
-Flat profiler default above callback costs 9.80880150000121 microseconds
+Flat profiler call cost is 0.8709772800015344 microseconds per wrapped call
+Flat profiler default below callback costs 1.922991900024499 microseconds
+Flat profiler default above callback costs 18.760862600011023 microseconds
 ```
 
-With these numbers if you applied the flat profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit (the "below" callback is triggered), then the flat profiler would add a total of only (100 * 0.609743) + 1.628916 = 62.603216 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to (100 * 0.609743) + 9.808802 = 70.783102 μs.
+With these numbers if you applied the flat profiler to a function with 100 calls that are wrapped, used the default logging callbacks, and total function runtime was generally below the profiler time limit (the "below" callback is triggered), then the flat profiler would add a total of only (100 * 0.870977) + 1.922992 = 89.020692 μs to the execution time of the function. When the execution time is high enough to trigger the more costly "above" default callback (which processes and sorts call times to include them in its log message) this cost increases to (100 * 0.870977) + 18.760863 = 105.858563 μs.
 
-While this performance will differ across devices, with results of a small fraction of a millisecond this indicates the performance impact should typically be insignificant. This meets the original goal of being able to continuously monitor a function in a production system, especially if it is run infrequently such as once a second or less often. Note that this analysis only applies to the default below/above callbacks included in this project, and custom callbacks could have significantly different performance.
+While this performance will differ across devices, with results well under a millisecond this indicates the performance impact should typically be insignificant. This meets the original goal of being able to continuously monitor a function in a production system, especially if it is run infrequently such as once a second or less often. Note that this analysis only applies to the default below/above callbacks included in this project, and custom callbacks could have significantly different performance.
 
 To check performance on other devices, you can run this performance script yourself with the command `python -m flat_profiler.performance`.
 

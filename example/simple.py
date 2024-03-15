@@ -18,12 +18,12 @@ def faster_function() -> None:
     time.sleep(0.001)
 
 
-@flat_profile(time_limit=0.3)
+@flat_profile(time_limit=0.3, ignore_builtins=False)
 def example_function(count: int) -> str:
     """Function we are rewriting to time calls."""
     faster_function()
-    for _ in (int(v) for v in range(count)):
-        pass
+    for v in range(count):
+        int(v)
     return slow_function(val=123.45)
 
 
