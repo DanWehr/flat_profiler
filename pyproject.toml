@@ -17,11 +17,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities"
 ]
 dependencies = [
-    "recompyle >= 0.2.1, < 0.3.0"
+    "recompyle >= 0.4.1, < 0.5.0"
 ]
 
 [project.urls]
@@ -48,7 +49,7 @@ dependencies = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["3.10", "3.11"]
+python = ["3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.test.scripts]
 test = "pytest {args}"

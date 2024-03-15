@@ -5,10 +5,11 @@ from collections.abc import Callable
 import pytest
 
 from flat_profiler import flat_profile
+from flat_profiler.flat_profiler import TimeDict
 
 last_total: float = None
 last_limit: float = None
-last_times: dict = None
+last_times: TimeDict = None
 last_func: Callable = None
 
 
@@ -41,13 +42,13 @@ def delay_func(delay_time: float):
     time.sleep(delay_time)
 
 
-@flat_profile(time_limit=0.2, below_callback=get_args, above_callback=None)
+@flat_profile(time_limit=0.2, below_callback=get_args, above_callback=None, ignore_builtins=False)
 def custom_below_callback(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
 
 
-@flat_profile(time_limit=0.2, below_callback=None, above_callback=get_args)
+@flat_profile(time_limit=0.2, below_callback=None, above_callback=get_args, ignore_builtins=False)
 def custom_above_callback(delay_time: float):
     delay_func(delay_time)
     return sum(int(x) for x in range(3))
@@ -63,13 +64,23 @@ def default_callbacks(delay_time: float):
 class TestFlatProfiler:
     def verify_callback_args(self, func_name, limit):
         """Helper function that checks all times were recorded that should have been."""
-        delay_times = last_times.pop("delay_func")
+        delay_times, sum_times, range_times, int_times = [], [], [], []
+        for key in list(last_times.keys()):
+            match key:
+                case _, _, "delay_func":
+                    delay_times = last_times.pop(key)
+                case _, _, "sum":
+                    sum_times = last_times.pop(key)
+                case _, _, "range":
+                    range_times = last_times.pop(key)
+                case _, _, "int":
+                    int_times = last_times.pop(key)
+                case _:
+                    pytest.fail("Unknown call key")
+
         assert len(delay_times) == 1
-        sum_times = last_times.pop("sum")
         assert len(sum_times) == 1
-        range_times = last_times.pop("range")
         assert len(range_times) == 1
-        int_times = last_times.pop("int")
         assert len(int_times) == 3
         assert not last_times
         assert last_func.__name__ == func_name
