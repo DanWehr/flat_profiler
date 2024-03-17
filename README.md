@@ -52,11 +52,15 @@ log.info(example_function(2))
 This will produce the following log output:
 
 ```text
-INFO:flat_profiler.flat_profiler:example_function finished in 0.507082s, above limit of 0.3s
-     0.505s, Ln27, slow_function(val=123.45) | slow_function
-   0.00188s, Ln24, faster_function() | faster_function
-   1.8e-06s, Ln26, int(v) | int
-   1.1e-06s, Ln25, range(count) | range
+WARNING:__main__:example_function finished in 0.509s, above limit of 0.3s
+slow_function(val=123.45) | slow_function | L27
+  ↪ 0.503s total, 0.503s avg, 1 calls
+faster_function() | faster_function | L24
+  ↪ 0.00595s total, 0.00595s avg, 1 calls
+int(v) | int | L26
+  ↪ 1.6e-06s total, 8e-07s avg, 2 calls
+range(count) | range | L25
+  ↪ 1.2e-06s total, 1.2e-06s avg, 1 calls
 INFO:__main__:other val: 123.45
 ```
 
