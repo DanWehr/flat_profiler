@@ -8,8 +8,6 @@ from typing import ParamSpec, Protocol, TypeAlias, TypeVar
 
 from recompyle.rewrite import CallExtras, rewrite_wrap_calls_func
 
-log = logging.getLogger(__name__)
-
 P = ParamSpec("P")
 T = TypeVar("T")
 TimeDict: TypeAlias = dict[tuple[tuple[int, ...], str, str], list[float]]
@@ -30,25 +28,36 @@ class ProfilerCallback(Protocol):
         """
 
 
-def _collect_sorted_times(times: TimeDict) -> Generator[str, None, None]:
-    """Write call time summary to log."""
-    sum_times = ((func_key, sum(times)) for func_key, times in times.items())
+def collect_profiling_lines(times: TimeDict) -> Generator[str, None, None]:
+    """Convert call data to readable profiling lines.
+
+    For each call, the first line includes:
+    - The call as it appears in the original source.
+    - The __qualname__ or __name__ of the call.
+    - The source line number the call was on.
+    """
+    calc_times = ((func_key, (s := sum(times)), (ln := len(times)), s / ln) for func_key, times in times.items())
     return (
-        f"{time:>10.3g}s, Ln{'-'.join(str(f) for f in func_key[0])}, {func_key[1]} | {func_key[2]}"
-        for func_key, time in sorted(sum_times, key=itemgetter(1), reverse=True)
+        (
+            f"{func_key[1]} | {func_key[2]} | L{'-'.join(str(f) for f in func_key[0])}\n"
+            f"  ↪ {ttl_time:.3g}s total, {avg_time:.3g}s avg, {calls} calls"
+        )
+        for func_key, ttl_time, calls, avg_time in sorted(calc_times, key=itemgetter(1), reverse=True)
     )
 
 
-def default_below_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
-    """Log function total time without call details."""
-    log_str = f"{func.__qualname__} finished in {total:g}s, below limit of {limit:g}s"
-    log.info(log_str)
-
-
 def default_above_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
-    """Log detailed call details for function that went over limit."""
-    detailstr = "\n" + "\n".join(_collect_sorted_times(times))
-    log.info(f"{func.__qualname__} finished in {total:g}s, above limit of {limit:g}s" + detailstr)
+    """Log total time and detailed call details."""
+    log = logging.getLogger(func.__module__)
+    detailstr = "\n".join(collect_profiling_lines(times))
+    log.warning(f"{func.__qualname__} finished in {total:.3g}s, above limit of {limit:.3g}s\n" + detailstr)
+
+
+def default_below_log(total: float, limit: float, times: TimeDict, func: Callable) -> None:
+    """Log total time without call details."""
+    log = logging.getLogger(func.__module__)
+    log_str = f"{func.__qualname__} finished in {total:.3g}s, below limit of {limit:.3g}s"
+    log.info(log_str)
 
 
 def _find_name(call: Callable) -> str:
