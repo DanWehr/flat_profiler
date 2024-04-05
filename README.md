@@ -5,12 +5,12 @@ This package provides a flat profiler, which collects execution time information
 
 # Installation
 
-`pip install flat_profile`
+`pip install flat_profiler`
 
 
 # Usage
 
-This decorator uses call wrapping from [Recompyle](https://github.com/DanWehr/recompyle) to record the execution times of all calls, of the decorated function. A time limit must be provided, and if the total time is below/above that limit then below/above callbacks will execute.
+This decorator uses call wrapping from [Recompyle](https://github.com/DanWehr/recompyle) to record the execution times of all calls within the decorated function. A time limit must be provided, and if the total time is below/above that limit then below/above callbacks will execute.
 
 The default `below` callback will create a log message with only the total time. The default `above` callback will log the total as well as all call execution times, sorted by highest duration first.
 
